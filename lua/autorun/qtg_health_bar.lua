@@ -80,6 +80,7 @@ local function getconvar(a)
 end
 
 local on = addconvar('on',1,'Enable or disable')
+local bossbar = addconvar('bossbar',1,'Enable or disable boss bar')
 local mode3d = addconvar('3d',0,'Enable 3D')
 local showall = addconvar('showall',0,'Show all entities directly')
 local colr = addconvar('r',0,'red')
@@ -87,6 +88,8 @@ local colg = addconvar('g',0,'greed')
 local colb = addconvar('b',0,'blue')
 local cola = addconvar('a',200,'alpha')
 local distance = addconvar('distance',5000,'Visible distance')
+local isboss = addconvar('isboss',1500,'How much health will become a boss')
+local entboss = addconvar('entboss',0,'Entities will become bosses')
 
 local function getheadpos(e)
 	if !IsValid(e) then return end
@@ -166,7 +169,10 @@ local function getnamecolor(e,a)
     local p = LocalPlayer()
 
     if e:IsPlayer() then
-        return team.GetColor(e:Team())
+        local color = team.GetColor(e:Team())
+        color.a = a
+
+        return color
     elseif e:IsNPC() then
         snet('getdisp',p,e)
         
@@ -230,6 +236,8 @@ local function drawtext(v,fontc,x,y)
         drawText(a,fontn,x,y,b or fontc,args,TEXT_ALIGN_CENTER)
     end
 
+    hook.Run('QTG_OnHealthBarDrawText')
+
     for k,f in pairs(cinfo) do
         local fr = f(v)
         if fr then
@@ -273,6 +281,7 @@ local function drawtext(v,fontc,x,y)
     return n,gettextsize(v:Health()..' / '..v:GetMaxHealth(),unpack(args))
 end
 
+local health
 local function drawhud(v,x,y)
     if !GetConVar('cl_drawhud'):GetBool() then return end
     if !on:GetBool() then return end
@@ -305,10 +314,12 @@ local function drawhud(v,x,y)
             hp = getnpcstate(v) != 7 and hp or 0
         end
 
+        health = Lerp(math.Clamp(FrameTime()*5,0,1),health or fx+10,math.min(v:Health(),v:GetMaxHealth())*((fx+11)/v:GetMaxHealth()))
+
         surface.SetDrawColor(0,0,0,dist)
         surface.DrawRect(x-5,y+2,fx+10,28)
         surface.SetDrawColor(255,0,0,dist)
-        surface.DrawRect(x-5,y+2,math.min(v:Health(),v:GetMaxHealth())*((fx+11)/v:GetMaxHealth()),28)
+        surface.DrawRect(x-5,y+2,health,28)
         drawText(hp..' / '..v:GetMaxHealth(),fontn,x+(fx/2),y,gethealthcolor(v,fontc.a),TEXT_ALIGN_CENTER)
     end
 
@@ -321,13 +332,21 @@ end
 
 local bosstbl = {}
 local fontn = 'qtg_hpntext2'
+local health2 = {}
 local function drawhud2()
+    if !GetConVar('cl_drawhud'):GetBool() then return end
+    if !on:GetBool() then return end
+    if !bossbar:GetBool() then return end
+
     local x,y,w,h = ScrW()/2,10,800,50
     local n = 0
 
     for k,v in pairs(ents.GetAll()) do
-        if v != p and v:Health() >= 1000 then
-            bosstbl[v] = bosstbl[v] or {e = v}
+        if v != p and v:Health() >= isboss:GetFloat() then
+            if !entboss:GetBool() and !v:IsNPC() and !v:IsPlayer() and type(v) != 'Nextbot' then
+            else
+                bosstbl[v] = bosstbl[v] or {e = v}
+            end
         end
     end
 
@@ -377,11 +396,13 @@ local function drawhud2()
                 end
             end
 
+            health2[v] = Lerp(math.Clamp(FrameTime()*5,0,1),health2[v] or w-8,math.min(hp,maxhp)*((w-8)/maxhp))
+
             drawText('Boss: '..name,fontn,x,y,Color(255,255,255,255),TEXT_ALIGN_CENTER)
             surface.SetDrawColor(0,0,0,200)
             surface.DrawRect(x-(w/2)+4,y+h/2-4,w-8,h/2)
             surface.SetDrawColor(255,0,0,255)
-            surface.DrawRect(x-(w/2)+4,y+h/2-4,math.min(hp,maxhp)*((w-8)/maxhp),h/2)
+            surface.DrawRect(x-(w/2)+4,y+h/2-4,health2[v],h/2)
             drawText(hp..' / '..v:GetMaxHealth(),fontn,x,y+25,Color(255,255,255,255),TEXT_ALIGN_CENTER)
 
             y = y+h
@@ -404,8 +425,6 @@ addhook('HUDPaint',function()
 
         local hpos = getheadpos(e) or e:GetPos()
         local pos = hpos:ToScreen()
-
-        print(e:Health())
 
         if pos then
             drawhud(e,pos.x+50,pos.y+100)
