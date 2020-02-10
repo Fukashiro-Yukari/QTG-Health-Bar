@@ -1,8 +1,8 @@
 AddCSLuaFile()
 
 local netr = {}
-local function startnet(a,b,t,v,...)
-    net.Start(a)
+local function startnet(b,t,v,...)
+    net.Start('qhpbar_getnpc')
     net.WriteString(b)
     net.WriteTable({...})
 
@@ -26,11 +26,11 @@ local function startnet(a,b,t,v,...)
 end
 
 local function snet(a,...)
-    return startnet('qhpbar_getnpc',a,nil,nil,...)
+    return startnet(a,nil,nil,...)
 end
 
-local function readnet(a,b,c)
-    net.Receive(a,function(_,p)
+local function readnet(b,c)
+    net.Receive('qhpbar_getnpc',function(_,p)
         local id = net.ReadString()
         local t = net.ReadTable()
     
@@ -40,6 +40,10 @@ local function readnet(a,b,c)
     end)
 
     netr[b] = c
+end
+
+local function addhook(a,b,c)
+    hook.Add(a,c or 'qtg_hpbar',b)
 end
 
 if CLIENT then
@@ -59,10 +63,6 @@ function QTGHPBar.Addinfo(a,b)
     end
     
     cinfo[a] = b
-end
-
-local function addhook(a,b,c)
-    hook.Add(a,c or 'qtg_hpbar',b)
 end
 
 local function addfont(a,b)
@@ -103,6 +103,18 @@ local function getheadpos(e)
     else
         return e:LocalToWorld(e:OBBCenter())
     end
+end
+
+local function Health(e)
+    if !IsValid(e) then return 0 end
+
+    if game.SinglePlayer() then
+        snet('getclienthealth',e)
+
+        return e:GetNW2Float('qtg_hp_clienthealth')
+    end
+
+    return e:Health()
 end
 
 local fontn = 'qtg_hpntext'
@@ -194,7 +206,7 @@ local function gethealthcolor(e,a)
     local hg = Color(150,255,150,a)
     local hb = Color(255,150,150,a)
 
-    if e:Health()/e:GetMaxHealth() < 0.25 then
+    if Health(e)/e:GetMaxHealth() < 0.25 then
         return hb
     end
 
@@ -278,7 +290,7 @@ local function drawtext(v,fontc,x,y)
         dtext(gettext(v),true)
     end
 
-    return n,gettextsize(v:Health()..' / '..v:GetMaxHealth(),unpack(args))
+    return n,gettextsize(Health(v)..' / '..v:GetMaxHealth(),unpack(args))
 end
 
 local health
@@ -305,8 +317,8 @@ local function drawhud(v,x,y)
         surface.DrawRect(x-10,y-(2+30*li),fx+20,35+30*li)
     end
 
-    if v:Health() != 0 and v:GetMaxHealth() != 0 then
-        local hp = v:Health()
+    if Health(v) != 0 and v:GetMaxHealth() != 0 then
+        local hp = Health(v)
 
         if v:IsPlayer() then
             hp = v:Alive() and hp or 0
@@ -314,7 +326,7 @@ local function drawhud(v,x,y)
             hp = getnpcstate(v) != 7 and hp or 0
         end
 
-        health = Lerp(math.Clamp(FrameTime()*5,0,1),health or fx+10,math.min(v:Health(),v:GetMaxHealth())*((fx+11)/v:GetMaxHealth()))
+        health = Lerp(math.Clamp(FrameTime()*5,0,1),health or fx+10,math.min(Health(v),v:GetMaxHealth())*((fx+11)/v:GetMaxHealth()))
 
         surface.SetDrawColor(0,0,0,dist)
         surface.DrawRect(x-5,y+2,fx+10,28)
@@ -342,7 +354,7 @@ local function drawhud2()
     local n = 0
 
     for k,v in pairs(ents.GetAll()) do
-        if v != p and v:Health() >= isboss:GetFloat() then
+        if v != p and Health(v) >= isboss:GetFloat() then
             if !entboss:GetBool() and !v:IsNPC() and !v:IsPlayer() and type(v) != 'Nextbot' then
             else
                 bosstbl[v] = bosstbl[v] or {e = v}
@@ -377,7 +389,7 @@ local function drawhud2()
                 name = v:GetClass()
             end
 
-            local hp = v:Health()
+            local hp = Health(v)
             if v:IsPlayer() then
                 hp = v:Alive() and hp or 0
             elseif v:IsNPC() then
@@ -477,18 +489,23 @@ end)
 
 else
 
-local netname = 'qhpbar_getnpc'
-util.AddNetworkString(netname)
+util.AddNetworkString('qhpbar_getnpc')
 
-readnet(netname,'getdisp',function(p,e)
+readnet('getdisp',function(p,e)
     if IsValid(p) and IsValid(e) and e:IsNPC() then
         e:SetNW2Int('qhpbar_getnpcd',e:Disposition(p))
     end
 end)
 
-readnet(netname,'getstate',function(e)
+readnet('getstate',function(e)
     if IsValid(e) and e:IsNPC() then
         e:SetNW2Int('qhpbar_getnpcs',e:GetNPCState())
+    end
+end)
+
+readnet('getclienthealth',function(e)
+    if IsValid(e) then
+        e:SetNW2Float('qtg_hp_clienthealth',e:Health())
     end
 end)
 
