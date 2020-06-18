@@ -56,7 +56,7 @@ function QTGHPBar.Addinfo(a,b)
         b = a
         a = ''
 
-        for i=0,12 do
+        for i = 0,12 do
             local r = math.random(97,122)
             a = a..string.char(r)
         end
@@ -268,7 +268,7 @@ local function drawtext(v,fontc,x,y)
 
     if IsValid(v:GetOwner()) then
         if v:GetOwner() == v then
-            dtext('Owner: He himself')
+            dtext('Owner: He yourself')
         elseif v:GetOwner():IsPlayer() then
             dtext('Owner: '..v:GetOwner():Name())
         else
@@ -284,10 +284,12 @@ local function drawtext(v,fontc,x,y)
         dtext(team.GetName(v:Team()),true)
     end
 
-    dtext(v:GetClass(),true)
+    local getclass = gettext(v) != '' and v:GetClass() or '['..v:EntIndex()..'] '..v:GetClass()
+
+    dtext(getclass,true)
 
     if gettext(v) != '' then
-        dtext(gettext(v),true)
+        dtext('['..v:EntIndex()..'] '..gettext(v),true)
     end
 
     return n,gettextsize(Health(v)..' / '..v:GetMaxHealth(),unpack(args))
