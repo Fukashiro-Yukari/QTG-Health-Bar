@@ -328,7 +328,7 @@ local function drawhud(v,x,y)
             hp = getnpcstate(v) != 7 and hp or 0
         end
 
-        health = Lerp(math.Clamp(FrameTime()*5,0,1),health or fx+10,math.min(Health(v),v:GetMaxHealth())*((fx+11)/v:GetMaxHealth()))
+        health = Lerp(math.Clamp(FrameTime()*5,0,1),health or fx+10,math.Clamp(Health(v),0,v:GetMaxHealth())*((fx+11)/v:GetMaxHealth()))
 
         surface.SetDrawColor(0,0,0,dist)
         surface.DrawRect(x-5,y+2,fx+10,28)
